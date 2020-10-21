@@ -1,0 +1,13 @@
+.git/
+.idea/
+__pycache__/
+build/
+dist/
+.gitignore/
+keyboard_event.py
+player.py
+##ignore this file##
+*.mov
+*.mp4
+playlist
+test*.py
