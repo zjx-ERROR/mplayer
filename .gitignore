@@ -2,7 +2,6 @@
 .idea/
 __pycache__/
 build/
-dist/
 .gitignore/
 keyboard_event.py
 player.py
