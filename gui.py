@@ -9,6 +9,9 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeyEvent
 import config
 from PyQt5.QtNetwork import QUdpSocket, QHostAddress
+import argparse
+import sys
+import glob
 
 __all__ = ['QtPlayer', 'QPlayerView']
 
@@ -26,15 +29,16 @@ class QtPlayer(Player):
 class QPlayerView(_Container):
     eof = pyqtSignal(int)
 
-    def __init__(self, parent=None, args=(), stderr=None):
+    def __init__(self, parent=None, args=(), stderr=None,udp=False):
         super(QPlayerView, self).__init__(parent)
         self._player = QtPlayer(('-msglevel', 'global=6', '-fixed-vo', '-fs',
                                  '-wid', int(self.winId())) + args, stderr=stderr)
         self._player.stdout.connect(self._handle_data)
         self.destroyed.connect(self._on_destroy)
         self.volume = float(config.volume)
-        self.udp_slave(int(config.port1), int(config.port2))
-
+        if udp:
+            self.udp_slave(int(config.port1), int(config.port2))
+        # self.udp_slave(int(config.port1), int(config.port2))
     @property
     def player(self):
         return self._player
@@ -117,15 +121,17 @@ class _StdoutWrapper(_StderrWrapper, misc._StdoutWrapper):
     pass
 
 
+
 if __name__ == '__main__':
-    import sys
-    import glob
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', '--udp', default=False, required=True, type=bool)
+    args = parser.parse_args()
 
     with open(config.list_dir, "w", encoding="utf-8") as f:
         f.writelines([i + "\n" for i in glob.glob(config.media_list_dir)])
 
     app = QApplication(sys.argv)
-    v = QPlayerView()
+    v = QPlayerView(udp=args.udp)
     v.eof.connect(app.closeAllWindows)
     v.setWindowTitle('MPlayer')
     v.grabKeyboard()
@@ -135,3 +141,4 @@ if __name__ == '__main__':
     v.player.loadlist(config.list_dir)
     v.player.pause()
     sys.exit(app.exec_())
+

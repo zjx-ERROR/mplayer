@@ -10,3 +10,4 @@ player.py
 *.mp4
 playlist
 test*.py
+*.spec

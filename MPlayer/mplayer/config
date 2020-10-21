@@ -21,8 +21,8 @@ lavdopts=threads=4
 ## You can use the DirectX or OpenGL video output, default is directx.
 ## For Vista or later you should avoid using directx vo, it will
 ## disable Aero
-vo=directx
-## vo=direct3d
+## vo=directx
+vo=direct3d
 
 ## video filtering and postprocessing
 ## eq is useful if your video card does not support video overlay.
