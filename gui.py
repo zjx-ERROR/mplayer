@@ -2,16 +2,17 @@ from subprocess import PIPE
 
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QWidget as _Container
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
 from core import Player
 import misc
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtGui import QKeyEvent, QIcon
 import config
 from PyQt5.QtNetwork import QUdpSocket, QHostAddress
 import argparse
 import sys
 import glob
+import ctypes
 
 __all__ = ['QtPlayer', 'QPlayerView']
 
@@ -28,17 +29,27 @@ class QtPlayer(Player):
 
 class QPlayerView(_Container):
     eof = pyqtSignal(int)
+    play_status = 0
+    WM_APPCOMMAND = 0x319
+    APPCOMMAND_VOLUME_UP = 0x0a
+    APPCOMMAND_VOLUME_DOWN = 0x09
+    APPCOMMAND_VOLUME_MUTE = 0x08
 
-    def __init__(self, parent=None, args=(), stderr=None,udp=False):
+    def __init__(self, parent=None, args=(), stderr=None, udp=False):
         super(QPlayerView, self).__init__(parent)
         self._player = QtPlayer(('-msglevel', 'global=6', '-fixed-vo', '-fs',
                                  '-wid', int(self.winId())) + args, stderr=stderr)
         self._player.stdout.connect(self._handle_data)
         self.destroyed.connect(self._on_destroy)
-        self.volume = float(config.volume)
+
+        self.tray_wid()
         if udp:
             self.udp_slave(int(config.port1), int(config.port2))
-        # self.udp_slave(int(config.port1), int(config.port2))
+
+    def setVol(self, appcommand):
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        ctypes.windll.user32.PostMessageA(hwnd, self.WM_APPCOMMAND, 0, appcommand * 0x10000)
+
     @property
     def player(self):
         return self._player
@@ -54,8 +65,14 @@ class QPlayerView(_Container):
     def keyPressEvent(self, QKeyEvent):
         if QKeyEvent.key() == Qt.Key_Space:
             self._player.pause()
+            self.play_status = pow((self.play_status - 1), 2)
         elif QKeyEvent.key() == Qt.Key_Escape:
-            self.close()
+            if self.play_status:
+                self._player.pause()
+                self.play_status = 0
+            self.hide()
+            self.tray.show()
+
         elif QKeyEvent.modifiers() == Qt.ControlModifier and QKeyEvent.key() == Qt.Key_C:
             self._player.loadlist(config.list_dir)
 
@@ -79,25 +96,36 @@ class QPlayerView(_Container):
     def handle_datagram(self, data):
         ddata = data.decode("utf-8")
         if ddata == "Space":
+            if self.tray.isVisible():
+                self.show()
+                self.tray.hide()
             self._player.pause()
+            self.play_status = pow((self.play_status - 1), 2)
+
         elif ddata == "raise":
-            value = self.volume + 5
-            if value <= 100:
-                self.volume = value
-                self._player.volume = value
-            else:
-                self.volume = 100
-                self._player.volume = 100
+            self.setVol(self.APPCOMMAND_VOLUME_UP)
         elif ddata == "reduce":
-            value = self.volume - 5
-            if value >= 0:
-                self.volume = value
-                self._player.volume = value
-            else:
-                self.volume = 0
-                self._player.volume = 0
+            self.setVol(self.APPCOMMAND_VOLUME_DOWN)
         elif ddata == "FT1":
             self._player.loadlist(config.list_dir)
+
+    def tray_wid(self):
+        self.tray = QSystemTrayIcon()
+        self.icon = QIcon('gy.ico')
+        self.tray.setIcon(self.icon)
+        self.tray.activated.connect(self.tray_on_activate)
+        self.tray_menu = QMenu(QApplication.desktop())
+        self.restore_action = QAction(u'退出', self, triggered=self.exit)
+        self.tray_menu.addAction(self.restore_action)
+        self.tray.setContextMenu(self.tray_menu)
+
+    def tray_on_activate(self, reason):
+        if reason == self.tray.Trigger:
+            self.show()
+            self.tray.hide()
+
+    def exit(self):
+        sys.exit(15)
 
 
 class _StderrWrapper(misc._StderrWrapper):
@@ -121,7 +149,6 @@ class _StdoutWrapper(_StderrWrapper, misc._StdoutWrapper):
     pass
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-u', '--udp', default=False, required=True, type=bool)
@@ -132,13 +159,13 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     v = QPlayerView(udp=args.udp)
+
     v.eof.connect(app.closeAllWindows)
     v.setWindowTitle('MPlayer')
     v.grabKeyboard()
-    v.setWindowFlags(Qt.FramelessWindowHint)
+    v.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
     v.showFullScreen()
 
     v.player.loadlist(config.list_dir)
     v.player.pause()
     sys.exit(app.exec_())
-

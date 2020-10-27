@@ -16,12 +16,13 @@ msgcolor=yes
 #afm=hwac3
 
 ## Multithreaded decoding on supported codec
-lavdopts=threads=4
+lavdopts=threads=6
+
 
 ## You can use the DirectX or OpenGL video output, default is directx.
 ## For Vista or later you should avoid using directx vo, it will
 ## disable Aero
-## vo=directx
+## vo=directx:noaccel
 vo=direct3d
 
 ## video filtering and postprocessing
@@ -32,5 +33,5 @@ vo=direct3d
 ## Fontconfig
 fontconfig=yes
 font=Arial
-volume=60.0
-priority=abovenormal
+volume=100.0
+priority=high
