@@ -1,14 +1,13 @@
 from subprocess import PIPE
-
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QWidget as _Container
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
 from core import Player
 import misc
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal,QMutex
 from PyQt5.QtGui import QKeyEvent, QIcon
 import config
-from PyQt5.QtNetwork import QUdpSocket, QHostAddress
+from PyQt5.QtNetwork import QUdpSocket, QHostAddress,QAbstractSocket
 import argparse
 import sys
 import glob
@@ -43,6 +42,7 @@ class QPlayerView(_Container):
         self.destroyed.connect(self._on_destroy)
 
         self.tray_wid()
+        self.qmutex = QMutex()
         if udp:
             self.udp_slave(int(config.port1), int(config.port2))
 
@@ -65,11 +65,11 @@ class QPlayerView(_Container):
     def keyPressEvent(self, QKeyEvent):
         if QKeyEvent.key() == Qt.Key_Space:
             self._player.pause()
-            self.play_status = pow((self.play_status - 1), 2)
+            self.set_play_status()
         elif QKeyEvent.key() == Qt.Key_Escape:
             if self.play_status:
                 self._player.pause()
-                self.play_status = 0
+                self.set_play_status()
             self.hide()
             self.tray.show()
 
@@ -97,10 +97,10 @@ class QPlayerView(_Container):
         ddata = data.decode("utf-8")
         if ddata == "Space":
             if self.tray.isVisible():
-                self.show()
+                self.showFullScreen()
                 self.tray.hide()
             self._player.pause()
-            self.play_status = pow((self.play_status - 1), 2)
+            self.set_play_status()
 
         elif ddata == "raise":
             self.setVol(self.APPCOMMAND_VOLUME_UP)
@@ -123,6 +123,11 @@ class QPlayerView(_Container):
         if reason == self.tray.Trigger:
             self.show()
             self.tray.hide()
+
+    def set_play_status(self):
+        self.qmutex.lock()
+        self.play_status = pow((self.play_status - 1), 2)
+        self.qmutex.unlock()
 
     def exit(self):
         sys.exit(15)
