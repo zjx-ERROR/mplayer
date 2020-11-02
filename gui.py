@@ -86,11 +86,11 @@ class QPlayerView(_Container):
         self.socket2.readyRead.connect(self.on_udp_receive2)
 
     def on_udp_receive1(self):
-        data, host, port = self.socket1.readDatagram(1024)
+        data, host, port = self.socket1.readDatagram(512)
         self.handle_datagram(data)
 
     def on_udp_receive2(self):
-        data, host, port = self.socket2.readDatagram(1024)
+        data, host, port = self.socket2.readDatagram(512)
         self.handle_datagram(data)
 
     def handle_datagram(self, data):
